@@ -465,21 +465,34 @@
         const file = event.target.files[0];
         if (!file) return;
 
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const url = e.target.result;
+        if (typeof showNotification === 'function') showNotification('正在压缩图片…', 'info', 1500);
+        const compressOpts = { maxWidth: 1280, quality: 0.72, force: true };
+        const compressP = window.compressImageFile
+            ? window.compressImageFile(file, compressOpts)
+            : new Promise(function(res){ const r=new FileReader(); r.onload=function(e){res(e.target.result);}; r.readAsDataURL(file); });
+
+        compressP.then(function(url) {
+            if (!url) return;
             const bgValue = `url(${url}) center/cover no-repeat`;
             const pageBg = document.getElementById('home-page-bg');
             if (pageBg) pageBg.style.background = bgValue;
 
             document.querySelectorAll('#page-bg-presets .bg-preset').forEach(el => el.classList.remove('active'));
-            homeSetItem('home_page_bg_custom', url);
+            try {
+                homeSetItem('home_page_bg_custom', url);
+            } catch (e) {
+                // localStorage 超限时降级到 localforage
+                if (typeof localforage !== 'undefined') {
+                    localforage.setItem(homeKey('home_page_bg_custom'), url).catch(() => {});
+                }
+                if (typeof showNotification === 'function') showNotification('图片较大，已存入扩展存储', 'warning', 2000);
+            }
             homeSetItem('home_page_bg', 'custom');
-            
+
             // 同步到聊天界面
             syncBgToChat(bgValue);
-        };
-        reader.readAsDataURL(file);
+            if (typeof showNotification === 'function') showNotification('页面背景已压缩并保存 ✦', 'success', 1500);
+        });
     };
 
     // ========== 保存背景到预设（使用 localforage 避免 localStorage 大小限制） ==========
@@ -713,9 +726,14 @@
         const file = event.target.files[0];
         if (!file) return;
 
-        const reader = new FileReader();
-        reader.onload = async function(e) {
-            const url = e.target.result;
+        if (typeof showNotification === 'function') showNotification('正在压缩图片…', 'info', 1500);
+        const compressOpts = { maxWidth: 1280, quality: 0.72, force: true };
+        const compressP = window.compressImageFile
+            ? window.compressImageFile(file, compressOpts)
+            : new Promise(function(res){ const r=new FileReader(); r.onload=function(e){res(e.target.result);}; r.readAsDataURL(file); });
+
+        compressP.then(async function(url) {
+            if (!url) return;
             const heroBg = document.getElementById('hero-bg-inner');
             if (heroBg) heroBg.style.background = `url(${url}) center/cover no-repeat`;
 
@@ -723,8 +741,8 @@
             // 使用大容量存储保存自定义背景 URL
             await homeSetLargeItem('home_card_bg_custom', url);
             homeSetItem('home_card_bg', 'custom');
-        };
-        reader.readAsDataURL(file);
+            if (typeof showNotification === 'function') showNotification('卡片背景已压缩并保存 ✦', 'success', 1500);
+        });
     };
 
     // ========== 头像设置 ==========
@@ -843,9 +861,14 @@
         const file = event.target.files[0];
         if (!file) return;
 
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const url = e.target.result;
+        if (typeof showNotification === 'function') showNotification('正在压缩头像…', 'info', 1500);
+        const compressOpts = { maxWidth: 400, maxHeight: 400, quality: 0.82, force: true };
+        const compressP = window.compressImageFile
+            ? window.compressImageFile(file, compressOpts)
+            : new Promise(function(res){ const r=new FileReader(); r.onload=function(e){res(e.target.result);}; r.readAsDataURL(file); });
+
+        compressP.then(function(url) {
+            if (!url) return;
 
             const avatarEl = document.getElementById(`avatar-${currentAvatarTarget}`);
             if (avatarEl) avatarEl.src = url;
@@ -898,8 +921,8 @@
             } else if (typeof window.throttledSaveData === 'function') {
                 window.throttledSaveData();
             }
-        };
-        reader.readAsDataURL(file);
+            if (typeof showNotification === 'function') showNotification('头像已压缩并保存 ✦', 'success', 1500);
+        });
     };
 
     // ========== 图标颜色设置 ==========
@@ -1120,9 +1143,14 @@
         const file = event.target.files[0];
         if (!file || !currentIconTarget) return;
 
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const url = e.target.result;
+        if (typeof showNotification === 'function') showNotification('正在压缩图标…', 'info', 1500);
+        const compressOpts = { maxWidth: 200, maxHeight: 200, quality: 0.82, force: true };
+        const compressP = window.compressImageFile
+            ? window.compressImageFile(file, compressOpts)
+            : new Promise(function(res){ const r=new FileReader(); r.onload=function(e){res(e.target.result);}; r.readAsDataURL(file); });
+
+        compressP.then(function(url) {
+            if (!url) return;
             customAppIcons[currentIconTarget] = url;
 
             const iconEl = document.querySelector(`.app-icon[data-app="${currentIconTarget}"]`);
@@ -1131,10 +1159,18 @@
             }
 
             renderIconGrid();
-            homeSetItem('home_app_icons', JSON.stringify(customAppIcons));
+            try {
+                homeSetItem('home_app_icons', JSON.stringify(customAppIcons));
+            } catch (e) {
+                // localStorage 超限降级
+                if (typeof localforage !== 'undefined') {
+                    localforage.setItem(homeKey('home_app_icons'), JSON.stringify(customAppIcons)).catch(() => {});
+                }
+                if (typeof showNotification === 'function') showNotification('图标数据较大，已存入扩展存储', 'warning', 2000);
+            }
             currentIconTarget = null;
-        };
-        reader.readAsDataURL(file);
+            if (typeof showNotification === 'function') showNotification('图标已压缩并保存 ✦', 'success', 1500);
+        });
     };
 
     window.resetAppIcon = function(app) {

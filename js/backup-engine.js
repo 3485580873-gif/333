@@ -362,7 +362,8 @@
 
     function shouldSkipKeyGroupChat(key, flags) {
         if (!key) return true;
-        if (key.indexOf('dg_header_bg') !== -1 || key.indexOf('dg_overlay_bg') !== -1) return true;
+        // 注意：dg_header_bg / dg_overlay_bg 是美化背景，必须纳入备份（在 inclDg 模块下）
+        // 此前这里硬编码跳过它们会导致美化无法备份，已修复 —— 改由 buildModuleSkipPatterns 统一管理
         var patterns = buildModuleSkipPatterns(flags || {});
         return patterns.some(function (p) { return key.indexOf(p) !== -1; });
     }
@@ -514,6 +515,51 @@
             try {
                 lsData['moments_data'] = await inlineMomentsIdbRefs(lsData['moments_data']);
             } catch (e3) { console.warn('[backup] 朋友圈 IDB 引用展开失败', e3); }
+        }
+        // 兜底压缩：对 localStorage 中已知的美化大图键做压缩，减小备份体积、防止历史残留大图卡死导出
+        // 这些键在用户使用旧版本上传时可能存入了未压缩的原始大 base64
+        if (typeof window !== 'undefined' && typeof window.compressImageBase64 === 'function') {
+            var beautyImageKeys = ['dg_overlay_bg', 'dg_header_bg'];
+            for (var bi = 0; bi < beautyImageKeys.length; bi++) {
+                var bkey = beautyImageKeys[bi];
+                if (lsData[bkey] && typeof lsData[bkey] === 'string' && lsData[bkey].length > 200 * 1024) {
+                    try {
+                        var compressed = await window.compressImageBase64(lsData[bkey], { maxWidth: 1280, quality: 0.72 });
+                        if (compressed && compressed.length < lsData[bkey].length) {
+                            console.log('[backup] 兜底压缩 ' + bkey + ': ' + lsData[bkey].length + ' -> ' + compressed.length);
+                            lsData[bkey] = compressed;
+                        }
+                    } catch (bErr) { console.warn('[backup] 兜底压缩失败', bkey, bErr); }
+                }
+            }
+            // dg_custom_data 内可能含 decoImg 大图
+            if (lsData['dg_custom_data']) {
+                try {
+                    var cd = JSON.parse(lsData['dg_custom_data']);
+                    var cdChanged = false;
+                    if (cd.decoImg && typeof cd.decoImg === 'string' && cd.decoImg.length > 200 * 1024) {
+                        var decoCompressed = await window.compressImageBase64(cd.decoImg, { maxWidth: 800, quality: 0.75 });
+                        if (decoCompressed && decoCompressed.length < cd.decoImg.length) {
+                            cd.decoImg = decoCompressed; cdChanged = true;
+                        }
+                    }
+                    if (cdChanged) lsData['dg_custom_data'] = JSON.stringify(cd);
+                } catch (cdErr) { /* ignore */ }
+            }
+            // home_page_bg_custom / home_app_icons / home_avatar_me / home_avatar_partner 等可能含大图
+            var homeImgKeys = ['home_page_bg_custom', 'home_avatar_me', 'home_avatar_partner'];
+            for (var hi = 0; hi < homeImgKeys.length; hi++) {
+                var hkey = homeImgKeys[hi];
+                if (lsData[hkey] && typeof lsData[hkey] === 'string' && lsData[hkey].length > 200 * 1024 && lsData[hkey].indexOf('data:image') === 0) {
+                    try {
+                        var hCompressed = await window.compressImageBase64(lsData[hkey], { maxWidth: 800, quality: 0.78 });
+                        if (hCompressed && hCompressed.length < lsData[hkey].length) {
+                            console.log('[backup] 兜底压缩 ' + hkey + ': ' + lsData[hkey].length + ' -> ' + hCompressed.length);
+                            lsData[hkey] = hCompressed;
+                        }
+                    } catch (hErr) { /* ignore */ }
+                }
+            }
         }
         // 诊断日志：检查 diary / accounting 数据
         var diaryKeys = Object.keys(lfData).filter(function(k) { return k.indexOf('diary') !== -1; });

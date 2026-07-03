@@ -1329,12 +1329,13 @@ if (_chatSettingsEl) _chatSettingsEl.addEventListener('click', () => {
                         showNotification('背景图片不能超过10MB', 'error');
                         return;
                     }
-                    if (file.size > 5 * 1024 * 1024) {
-                        showNotification('文件较大，正在处理中...', 'info', 2000);
-                    }
-                    const reader = new FileReader();
-                    reader.onload = (event) => {
-                        const base64 = event.target.result;
+                    showNotification('正在压缩图片…', 'info', 2000);
+                    const compressOpts = { maxWidth: 1280, quality: 0.72, force: true };
+                    const compressP = window.compressImageFile
+                        ? window.compressImageFile(file, compressOpts)
+                        : new Promise(function(res){ const r=new FileReader(); r.onload=function(ev){res(ev.target.result);}; r.readAsDataURL(file); });
+                    compressP.then(function(base64) {
+                        if (!base64) return;
                         savedBackgrounds.push({
                             id: `user-${Date.now()}`,
                             type: file.type === 'image/gif' ? 'gif' : 'image',
@@ -1344,9 +1345,8 @@ if (_chatSettingsEl) _chatSettingsEl.addEventListener('click', () => {
                         renderBackgroundGallery();
                         window.applyBackground && window.applyBackground(base64);
                         localforage.setItem(getStorageKey('chatBackground'), base64);
-                        showNotification('新背景已添加并应用', 'success');
-                    };
-                    reader.readAsDataURL(file);
+                        showNotification('新背景已压缩并添加 ✦', 'success');
+                    });
                     e.target.value = '';
                 });
             }

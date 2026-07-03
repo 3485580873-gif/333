@@ -1474,10 +1474,18 @@ window.onDgOverlayOpacityChange = function(val) {
 window.handleDgOverlayBgUpload = function(input) {
     var file = input.files[0];
     if (!file) return;
-    var reader = new FileReader();
-    reader.onload = function(ev) {
-        var data = ev.target.result;
-        localStorage.setItem('dg_overlay_bg', data);
+    if (typeof showNotification === 'function') showNotification('正在压缩图片…', 'info', 1500);
+    var compressOpts = { maxWidth: 1280, quality: 0.72, force: true };
+    (window.compressImageFile ? window.compressImageFile(file, compressOpts) : (function(){
+        var r = new FileReader(); return new Promise(function(res){ r.onload=function(e){res(e.target.result);}; r.readAsDataURL(file); });
+    })()).then(function(data) {
+        if (!data) return;
+        try {
+            localStorage.setItem('dg_overlay_bg', data);
+        } catch (e) {
+            if (typeof showNotification === 'function') showNotification('图片仍过大，存储失败，请换更小的图', 'error');
+            return;
+        }
         applyDgOverlayBg(data);
         var prev = document.getElementById('dg-overlay-bg-preview');
         var prevImg = document.getElementById('dg-overlay-bg-preview-img');
@@ -1490,8 +1498,8 @@ window.handleDgOverlayBgUpload = function(input) {
         var valEl = document.getElementById('dg-overlay-opacity-val');
         if (slider) slider.value = pct;
         if (valEl) valEl.textContent = pct + '%';
-    };
-    reader.readAsDataURL(file);
+        if (typeof showNotification === 'function') showNotification('背景已压缩并保存 ✦', 'success');
+    });
 };
 
 window.clearDgOverlayBg = function() {
@@ -1639,16 +1647,19 @@ window.addAnnStatusPoolItem = function() {
 window.handleAnnStatusIconUpload = function(input) {
     var file = input.files[0];
     if (!file) return;
-    var reader = new FileReader();
-    reader.onload = function(ev) {
+    var compressOpts = { maxWidth: 200, maxHeight: 200, quality: 0.8, force: true };
+    (window.compressImageFile ? window.compressImageFile(file, compressOpts) : (function(){
+        var r = new FileReader(); return new Promise(function(res){ r.onload=function(e){res(e.target.result);}; r.readAsDataURL(file); });
+    })()).then(function(data) {
+        if (!data) return;
         var iconInput = document.getElementById('ann-status-icon-input');
         if (iconInput) {
-            iconInput.dataset.imgSrc = ev.target.result;
+            iconInput.dataset.imgSrc = data;
             iconInput.value = '[图片]';
             iconInput.style.fontSize = '10px';
         }
-    };
-    reader.readAsDataURL(file);
+        if (typeof showNotification === 'function') showNotification('图标已压缩', 'success', 1500);
+    });
 };
 
 window.removeAnnStatusPoolItem = function(idx) {
@@ -1665,14 +1676,22 @@ document.addEventListener('DOMContentLoaded', function() {
         headerInput.addEventListener('change', function(e) {
             var file = e.target.files[0];
             if (!file) return;
-            var reader = new FileReader();
-            reader.onload = function(ev) {
-                var data = ev.target.result;
-                localStorage.setItem('dg_header_bg', data);
+            if (typeof showNotification === 'function') showNotification('正在压缩图片…', 'info', 1500);
+            var compressOpts = { maxWidth: 1280, quality: 0.72, force: true };
+            (window.compressImageFile ? window.compressImageFile(file, compressOpts) : (function(){
+                var r = new FileReader(); return new Promise(function(res){ r.onload=function(e2){res(e2.target.result);}; r.readAsDataURL(file); });
+            })()).then(function(data) {
+                if (!data) return;
+                try {
+                    localStorage.setItem('dg_header_bg', data);
+                } catch (err) {
+                    if (typeof showNotification === 'function') showNotification('图片仍过大，存储失败', 'error');
+                    return;
+                }
                 var bgEl = document.getElementById('dg-header-band-bg');
                 if (bgEl) { bgEl.style.backgroundImage = 'url(' + data + ')'; bgEl.classList.add('has-img'); }
-            };
-            reader.readAsDataURL(file);
+                if (typeof showNotification === 'function') showNotification('头部背景已压缩并保存 ✦', 'success', 1500);
+            });
         });
     }
     var decoInput = document.getElementById('dg-deco-img-input');
@@ -1680,18 +1699,26 @@ document.addEventListener('DOMContentLoaded', function() {
         decoInput.addEventListener('change', function(e) {
             var file = e.target.files[0];
             if (!file) return;
-            var reader = new FileReader();
-            reader.onload = function(ev) {
-                var data = ev.target.result;
+            if (typeof showNotification === 'function') showNotification('正在压缩图片…', 'info', 1500);
+            var compressOpts = { maxWidth: 800, quality: 0.75, force: true };
+            (window.compressImageFile ? window.compressImageFile(file, compressOpts) : (function(){
+                var r = new FileReader(); return new Promise(function(res){ r.onload=function(e2){res(e2.target.result);}; r.readAsDataURL(file); });
+            })()).then(function(data) {
+                if (!data) return;
                 var customData = {};
                 try { customData = JSON.parse(localStorage.getItem('dg_custom_data') || '{}'); } catch(ex) {}
                 customData.decoImg = data;
-                localStorage.setItem('dg_custom_data', JSON.stringify(customData));
+                try {
+                    localStorage.setItem('dg_custom_data', JSON.stringify(customData));
+                } catch (err) {
+                    if (typeof showNotification === 'function') showNotification('图片仍过大，存储失败', 'error');
+                    return;
+                }
                 var prev = document.getElementById('dg-deco-preview');
                 var prevImg = document.getElementById('dg-deco-preview-img');
                 if (prev && prevImg) { prevImg.src = data; prev.style.display = 'block'; }
-            };
-            reader.readAsDataURL(file);
+                if (typeof showNotification === 'function') showNotification('装饰图已压缩并保存 ✦', 'success', 1500);
+            });
         });
     }
 });

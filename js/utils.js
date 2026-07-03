@@ -578,3 +578,155 @@ async function importAllData(file) {
         showNotification('导入失败：' + msg, 'error', 5000);
     }
 }
+
+// ========== 统一图片压缩工具 ==========
+// 用途：所有美化 / 头像 / 图标 / 背景上传入口统一调用，避免大 base64 撑爆 localStorage 被刷新清掉
+// 设计要点：
+//   1. GIF 直接透传（canvas 重绘会丢帧），但若体积过大仍尝试用 FileReader 读取（不压缩）
+//   2. 普通图片走 canvas：限制最大宽度 + JPEG 质量压缩
+//   3. PNG 带透明通道时输出 PNG（保留透明），否则输出 JPEG（体积更小）
+//   4. 任何异常都回退到原始 FileReader.readAsDataURL，保证功能可用
+//   5. 返回 Promise<string>（base64 data URL）
+function compressImageFile(file, options) {
+    var opts = options || {};
+    var maxWidth = opts.maxWidth || 1280;   // 默认最大宽度 1280px
+    var quality = opts.quality || 0.72;     // 默认 JPEG 质量 0.72
+    var minSize = opts.minSize || 200 * 1024; // 小于 200KB 不压缩，直接读取
+    var force = opts.force || false;        // 强制压缩（即使小文件）
+
+    return new Promise(function (resolve) {
+        if (!file) { resolve(null); return; }
+
+        var isGif = (file.type === 'image/gif');
+        var isPng = (file.type === 'image/png');
+
+        // GIF 不走 canvas（会丢动画），直接读取 base64
+        if (isGif) {
+            var gr = new FileReader();
+            gr.onload = function (ev) { resolve(ev.target.result); };
+            gr.onerror = function () { resolve(null); };
+            gr.readAsDataURL(file);
+            return;
+        }
+
+        // 小文件直接读取，不压缩
+        if (!force && file.size < minSize) {
+            var sr = new FileReader();
+            sr.onload = function (ev) { resolve(ev.target.result); };
+            sr.onerror = function () { resolve(null); };
+            sr.readAsDataURL(file);
+            return;
+        }
+
+        var reader = new FileReader();
+        reader.onload = function (ev) {
+            var dataUrl = ev.target.result;
+            var img = new Image();
+            img.onload = function () {
+                try {
+                    var w = img.naturalWidth || img.width;
+                    var h = img.naturalHeight || img.height;
+                    if (!w || !h) { resolve(dataUrl); return; }
+
+                    var scale = 1;
+                    if (w > maxWidth) scale = maxWidth / w;
+                    // 同时限制高度，避免超长截图
+                    var maxH = opts.maxHeight || 0;
+                    if (maxH && h * scale > maxH) scale = maxH / h;
+
+                    var cw = Math.max(1, Math.round(w * scale));
+                    var ch = Math.max(1, Math.round(h * scale));
+
+                    var canvas = document.createElement('canvas');
+                    canvas.width = cw;
+                    canvas.height = ch;
+                    var ctx = canvas.getContext('2d');
+
+                    // PNG 透明背景：先填白会导致透明变白底，所以 PNG 时保持透明
+                    if (!isPng) {
+                        ctx.fillStyle = '#ffffff';
+                        ctx.fillRect(0, 0, cw, ch);
+                    }
+                    ctx.drawImage(img, 0, 0, cw, ch);
+
+                    // PNG 输出 PNG（保留透明），其余输出 JPEG
+                    var outType = isPng ? 'image/png' : 'image/jpeg';
+                    var outQuality = isPng ? undefined : quality;
+                    var result = canvas.toDataURL(outType, outQuality);
+
+                    // 如果压缩后反而更大（罕见，小图高质量），回退原始
+                    if (result.length > dataUrl.length && !force) {
+                        resolve(dataUrl);
+                    } else {
+                        resolve(result);
+                    }
+                } catch (e) {
+                    console.warn('[compressImageFile] canvas 压缩失败，回退原始:', e);
+                    resolve(dataUrl);
+                }
+            };
+            img.onerror = function () {
+                console.warn('[compressImageFile] 图片加载失败，回退原始 base64');
+                resolve(dataUrl);
+            };
+            img.src = dataUrl;
+        };
+        reader.onerror = function () { resolve(null); };
+        reader.readAsDataURL(file);
+    });
+}
+
+// 压缩已有的 base64 字符串（用于备份兜底、历史数据清理）
+// 输入 base64 data URL，返回压缩后的 base64 data URL
+function compressImageBase64(dataUrl, options) {
+    var opts = options || {};
+    var maxWidth = opts.maxWidth || 1280;
+    var quality = opts.quality || 0.72;
+
+    return new Promise(function (resolve) {
+        if (!dataUrl || typeof dataUrl !== 'string' || dataUrl.indexOf('data:') !== 0) {
+            resolve(dataUrl);
+            return;
+        }
+        // GIF / 非图片直接返回
+        if (dataUrl.indexOf('data:image/gif') === 0) { resolve(dataUrl); return; }
+        // 太短的不处理
+        if (dataUrl.length < 50 * 1024) { resolve(dataUrl); return; }
+
+        var isPng = dataUrl.indexOf('data:image/png') === 0;
+        var img = new Image();
+        img.onload = function () {
+            try {
+                var w = img.naturalWidth || img.width;
+                var h = img.naturalHeight || img.height;
+                if (!w || !h) { resolve(dataUrl); return; }
+                var scale = w > maxWidth ? maxWidth / w : 1;
+                var maxH = opts.maxHeight || 0;
+                if (maxH && h * scale > maxH) scale = maxH / h;
+                var cw = Math.max(1, Math.round(w * scale));
+                var ch = Math.max(1, Math.round(h * scale));
+                var canvas = document.createElement('canvas');
+                canvas.width = cw;
+                canvas.height = ch;
+                var ctx = canvas.getContext('2d');
+                if (!isPng) {
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(0, 0, cw, ch);
+                }
+                ctx.drawImage(img, 0, 0, cw, ch);
+                var outType = isPng ? 'image/png' : 'image/jpeg';
+                var outQuality = isPng ? undefined : quality;
+                var result = canvas.toDataURL(outType, outQuality);
+                resolve(result.length < dataUrl.length ? result : dataUrl);
+            } catch (e) {
+                resolve(dataUrl);
+            }
+        };
+        img.onerror = function () { resolve(dataUrl); };
+        img.src = dataUrl;
+    });
+}
+
+// 暴露到全局
+window.compressImageFile = compressImageFile;
+window.compressImageBase64 = compressImageBase64;
