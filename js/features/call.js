@@ -681,12 +681,54 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
         ov.classList.add('visible');
         clearTimeout(S.incomingTimer);
 
+        // 来电消息弹窗（复用项目通用样式）
+        const partnerName = getName();
+        try {
+            const existing = document.getElementById('call-incoming-toast');
+            if (existing) existing.remove();
+            const toast = document.createElement('div');
+            toast.id = 'call-incoming-toast';
+            toast.innerHTML = `
+                <div style="position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:10000;background:var(--secondary-bg);border:1px solid var(--border-color);border-radius:16px;padding:16px 20px;box-shadow:0 8px 32px rgba(0,0,0,0.2);max-width:360px;font-family:var(--font-family);">
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+                        <div style="width:36px;height:36px;border-radius:50%;background:rgba(var(--accent-color-rgb),0.15);display:flex;align-items:center;justify-content:center;">
+                            <i class="fas fa-phone" style="color:var(--accent-color);font-size:16px;animation:cBl 1.1s step-end infinite;"></i>
+                        </div>
+                        <div style="flex:1;">
+                            <div style="font-size:14px;font-weight:600;color:var(--text-primary);">${partnerName} 来电</div>
+                            <div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">邀请您进行视频通话…</div>
+                        </div>
+                        <button onclick="document.getElementById('call-incoming-toast')&amp;&amp;document.getElementById('call-incoming-toast').remove()" style="background:none;border:none;color:var(--text-secondary);cursor:pointer;padding:4px;font-size:16px;">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div style="display:flex;gap:10px;">
+                        <button onclick="document.getElementById('call-inc-reject')&amp;&amp;document.getElementById('call-inc-reject').click();document.getElementById('call-incoming-toast')&amp;&amp;document.getElementById('call-incoming-toast').remove()" style="flex:1;padding:9px 14px;border:1px solid var(--border-color);border-radius:10px;background:transparent;color:var(--text-secondary);font-size:13px;cursor:pointer;font-family:var(--font-family);">
+                            忽略
+                        </button>
+                        <button onclick="document.getElementById('call-inc-accept')&amp;&amp;document.getElementById('call-inc-accept').click();document.getElementById('call-incoming-toast')&amp;&amp;document.getElementById('call-incoming-toast').remove()" style="flex:1;padding:9px 14px;border:none;border-radius:10px;background:var(--accent-color);color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font-family);">
+                            接听
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(toast);
+            // 来电浮层关闭时同步移除弹窗
+            const removeToast = () => {
+                const el = document.getElementById('call-incoming-toast');
+                if (el) el.remove();
+            };
+            // 8 秒后自动消失（比来电超时短，避免长期停留）
+            setTimeout(removeToast, 8000);
+        } catch(e) { /* 弹窗失败不影响来电功能 */ }
+
         const autoRejectChance = 0.30;
         if (Math.random() < autoRejectChance) {
             const rejectDelay = 4000 + Math.random() * 6000;
             S.incomingTimer = setTimeout(() => {
                 if (!ov.classList.contains('visible')) return;
                 ov.classList.remove('visible');
+                document.getElementById('call-incoming-toast')?.remove();
                 const myName = (typeof settings !== 'undefined' && settings.myName) || '我';
                 const partnerName = getName();
                 const rejectLabels = [
@@ -702,6 +744,7 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
             S.incomingTimer = setTimeout(() => {
                 if (!ov.classList.contains('visible')) return;
                 ov.classList.remove('visible');
+                document.getElementById('call-incoming-toast')?.remove();
                 const myName = (typeof settings !== 'undefined' && settings.myName) || '我';
                 sendCallEvent('fa-phone-slash', `${myName}未接听 ${getName()} 的来电`, null);
             }, 22000);
@@ -843,12 +886,14 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
     function bindEvents() {
         document.getElementById('call-inc-reject')?.addEventListener('click', () => {
             document.getElementById('call-incoming-overlay')?.classList.remove('visible');
+            document.getElementById('call-incoming-toast')?.remove();
             clearTimeout(S.incomingTimer);
             const myName = (typeof settings !== 'undefined' && settings.myName) || '我';
             sendCallEvent('fa-phone-slash', `${myName}拒绝了 ${getName()} 的通话`, null);
         });
         document.getElementById('call-inc-accept')?.addEventListener('click', () => {
             document.getElementById('call-incoming-overlay')?.classList.remove('visible');
+            document.getElementById('call-incoming-toast')?.remove();
             clearTimeout(S.incomingTimer); startCall(true);
         });
 
