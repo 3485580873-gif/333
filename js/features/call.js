@@ -673,6 +673,34 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
             showNotification('通话已挂断', 'info', 2000);
     }
 
+    // 请求系统通知权限
+    function ensureNotificationPermission() {
+        if (!('Notification' in window)) return Promise.resolve('unsupported');
+        if (Notification.permission === 'granted') return Promise.resolve('granted');
+        if (Notification.permission === 'denied') return Promise.resolve('denied');
+        return Notification.requestPermission();
+    }
+
+    // 发送系统级通知（用户在其他App/标签页时也能看到）
+    function showSystemCallNotification(partnerName) {
+        if (!('Notification' in window) || Notification.permission !== 'granted') return;
+        try {
+            const notif = new Notification(`${partnerName} 来电`, {
+                body: '邀请您进行视频通话…',
+                tag: 'call-incoming',
+                requireInteraction: true,
+                icon: (typeof settings !== 'undefined' && settings.partnerAvatar) || undefined,
+                silent: false
+            });
+            notif.onclick = function() {
+                window.focus();
+                this.close();
+            };
+            // 30 秒后自动关闭（避免长期残留）
+            setTimeout(() => { try { notif.close(); } catch(e){} }, 30000);
+        } catch(e) { /* 通知失败不影响网页内弹窗 */ }
+    }
+
     function showIncomingCall() {
         if (!S.enabled || S.active) return;
         const ov = document.getElementById('call-incoming-overlay');
@@ -683,6 +711,10 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
 
         // 来电消息弹窗（复用项目通用样式）
         const partnerName = getName();
+
+        // 同时发送系统级通知（用户在其他App/标签页时能看到）
+        showSystemCallNotification(partnerName);
+
         try {
             const existing = document.getElementById('call-incoming-toast');
             if (existing) existing.remove();
@@ -977,6 +1009,13 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
         const late = () => {
             injectToolbarBtn();
             if (S.enabled) scheduleRandomCall();
+            // 首次进入聊天时请求通知权限（用于来电跨App提醒）
+            if (S.enabled && 'Notification' in window && Notification.permission === 'default') {
+                // 延迟请求，避免一进来就弹权限框
+                setTimeout(() => {
+                    try { Notification.requestPermission(); } catch(e) {}
+                }, 3000);
+            }
             const syncCallToggle = () => {
                 const tog = document.getElementById('call-enabled-toggle');
                 if (tog) {
