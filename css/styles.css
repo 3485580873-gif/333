@@ -931,6 +931,12 @@ html[data-theme="dark"] .username:hover {
         height: 38px;
         font-size: 16px;
     }
+    /* 火花图标始终独立显示，不收纳进下拉菜单 */
+    .spark-icon {
+        flex-shrink: 0;
+        position: relative;
+        z-index: 1001;
+    }
 }
 
 @keyframes headerDropdownIn {
