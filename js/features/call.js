@@ -617,8 +617,8 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
         const b = document.getElementById('call-mini-timer');
         if (a) a.textContent = t;
         if (b) b.textContent = t;
-        // 每 5 秒自动保存通话状态，防止页面闪退时丢失
-        if (S.elapsed - S.lastSessionSave > 5000) {
+        // 每 2 秒自动保存通话状态，防止页面闪退时丢失
+        if (S.elapsed - S.lastSessionSave > 2000) {
             S.lastSessionSave = S.elapsed;
             saveSession();
         }
@@ -1213,6 +1213,29 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
     window.addEventListener('beforeunload', handlePageUnload);
     // pagehide 在移动端比 beforeunload 更可靠
     window.addEventListener('pagehide', handlePageUnload);
+
+    // visibilitychange：移动端切后台/切前台的关键事件
+    // 移动端 beforeunload/pagehide 经常不触发，但 visibilitychange 一定能触发
+    document.addEventListener('visibilitychange', function() {
+        if (document.hidden) {
+            // 页面切到后台（切应用、按Home键、锁屏等）→ 立即保存通话状态
+            if (S.active && S.startTime) {
+                saveSession();
+            }
+        } else {
+            // 页面回到前台 → 如果通话已因后台暂停而"断掉"，刷新计时器
+            if (S.active && S.startTime) {
+                // RAF 在后台会被暂停，回来后重新启动
+                cancelAnimationFrame(S.timerRAF);
+                tick();
+            }
+        }
+    });
+
+    // freeze 事件：部分移动端浏览器在资源不足时冻结页面
+    window.addEventListener('freeze', function() {
+        if (S.active && S.startTime) saveSession();
+    });
 
     function init() {
         injectCSS();

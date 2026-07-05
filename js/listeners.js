@@ -8,17 +8,50 @@ function setupEventListeners() {
         initNewFeatureListeners();
         setupTutorialListeners();
         initMoodListeners();
-        initDecisionModule(); 
-        initThemeEditor(); 
+        initDecisionModule();
+        initThemeEditor();
         initThemeSchemes();
         if (typeof window.initMoyu === 'function') window.initMoyu();
-        
-        initComboMenu(); 
-        
+
+        initComboMenu();
+        initHeaderActionsDropdown();
+
     } catch (e) {
         console.error("事件绑定过程中发生错误:", e);
     }
 }
+
+// 顶部功能按钮「更多」下拉菜单
+function initHeaderActionsDropdown() {
+    const moreBtn = document.getElementById('header-more-btn');
+    const dropdown = document.getElementById('header-actions-dropdown');
+    if (!moreBtn || !dropdown) return;
+
+    function closeDropdown() { dropdown.classList.remove('open'); }
+
+    moreBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        dropdown.classList.toggle('open');
+    });
+
+    // 点击下拉菜单内任意按钮后自动收起
+    dropdown.querySelectorAll('.action-btn').forEach(btn => {
+        btn.addEventListener('click', () => closeDropdown());
+    });
+
+    // 点击页面其他地方关闭
+    document.addEventListener('click', (e) => {
+        if (!dropdown.contains(e.target) && !moreBtn.contains(e.target)) {
+            closeDropdown();
+        }
+    });
+}
+
+// 供内联 onclick 调用，主动关闭下拉菜单
+window.closeHeaderActionsDropdown = function () {
+    const dropdown = document.getElementById('header-actions-dropdown');
+    if (dropdown) dropdown.classList.remove('open');
+};
 
 function initChatActionListeners() {
             DOMElements.chatContainer.addEventListener('click', (e) => {
