@@ -718,9 +718,11 @@ function showVoiceTab() {
             };
             // 获取音频时长（带超时保底）
             let sent = false;
+            let sendTimer = null;
             const doSend = () => {
                 if (sent) return;
                 sent = true;
+                if (sendTimer) { clearTimeout(sendTimer); sendTimer = null; }
                 addMessage(voiceMsg);
             };
             if (voice.audioUrl) {
@@ -730,13 +732,9 @@ function showVoiceTab() {
                         voiceMsg.voiceDuration = Math.round(tmpAudio.duration) || 0;
                         doSend();
                     });
-                    tmpAudio.addEventListener('canplaythrough', () => {
-                        voiceMsg.voiceDuration = Math.round(tmpAudio.duration) || 0;
-                        doSend();
-                    });
                     tmpAudio.addEventListener('error', () => { doSend(); });
                     // 超时保底：2秒后无论如何发送
-                    setTimeout(doSend, 2000);
+                    sendTimer = setTimeout(doSend, 2000);
                 } catch(e) {
                     doSend();
                 }

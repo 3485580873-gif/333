@@ -2734,9 +2734,11 @@ if (partnerPersonas && partnerPersonas.length > 0 && Math.random() < 0.3) {
                                 try {
                                     const tmpA = new Audio(randomVoice.audioUrl);
                                     let voiceSent = false;
+                                    let voiceTimer = null;
                                     const doVoiceSend = () => {
                                         if (voiceSent) return;
                                         voiceSent = true;
+                                        if (voiceTimer) { clearTimeout(voiceTimer); voiceTimer = null; }
                                         addMessage(voiceMsg);
                                         playSound('message');
                                     };
@@ -2745,7 +2747,7 @@ if (partnerPersonas && partnerPersonas.length > 0 && Math.random() < 0.3) {
                                         doVoiceSend();
                                     });
                                     tmpA.addEventListener('error', () => { doVoiceSend(); });
-                                    setTimeout(doVoiceSend, 2000);
+                                    voiceTimer = setTimeout(doVoiceSend, 2000);
                                 } catch(e) { addMessage(voiceMsg); playSound('message'); }
                             } else {
                                 addMessage(voiceMsg);
