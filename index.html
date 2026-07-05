@@ -2103,12 +2103,14 @@
                 </div>
             </div>
             <div class="header-actions">
+                <!-- 主页按钮：始终独立显示，不收纳 -->
+                <button id="home-btn" class="action-btn" title="主页" onclick="showHomePage()"><i class="fas fa-home"></i></button>
+
                 <!-- 移动端更多按钮 -->
                 <button id="header-more-btn" class="action-btn" title="更多功能"><i class="fas fa-ellipsis-h"></i></button>
 
                 <!-- 功能按钮：桌面端平铺 / 移动端下拉 -->
                 <div class="header-actions-dropdown" id="header-actions-dropdown">
-                    <button id="home-btn" class="action-btn" title="主页" onclick="showHomePage()"><i class="fas fa-home"></i></button>
                     <button id="moyu-btn" class="action-btn" title="摸鱼小记"><i class="fas fa-fish"></i></button>
                     <button id="session-manager-btn" class="action-btn" title="会话管理"><i class="fas fa-comments"></i></button>
                     <button id="daily-greeting-btn" class="action-btn" title="今日公告" onclick="reopenDailyGreeting()"><i class="fas fa-newspaper"></i></button>
