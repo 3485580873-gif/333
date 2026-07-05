@@ -183,7 +183,12 @@
         calendar: '<i class="fas fa-calendar-alt"></i>',
         decide: '<i class="fas fa-balance-scale"></i>',
         stats: '<i class="fas fa-chart-bar"></i>',
-        accounting: '<i class="fas fa-coins"></i>'
+        accounting: '<i class="fas fa-coins"></i>',
+        shop: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:28px;height:28px;"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>',
+        'gift-cabinet': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:28px;height:28px;"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>',
+        pet: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:28px;height:28px;"><path d="M12 5c.67 0 1.35.09 2 .26 1.78-2 5.03-2.84 6.42-2.26 1.4.58-.42 7-.42 7 .57 1.07 1 2.24 1 3.44C21 17.9 16.97 21 12 21s-9-3.1-9-7.56c0-1.25.5-2.4 1-3.44 0 0-1.89-6.42-.5-7 1.39-.58 4.72.23 6.5 2.23A9.04 9.04 0 0 1 12 5Z"/><path d="M8 14v1"/><path d="M16 14v1"/><path d="M12 14v1"/><path d="M12 18c1.5 0 2-1 2-1"/></svg>',
+        'ta-phone': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:28px;height:28px;"><rect x="5" y="2" width="14" height="20" rx="2.5"/><line x1="10" y1="18" x2="14" y2="18"/></svg>',
+        map: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:28px;height:28px;"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>'
     };
 
     const defaultAppOrder = ['chat', 'mailbox', 'moyu', 'diary', 'fortune', 'mood', 'calendar', 'decide', 'stats', 'accounting', 'map'];
@@ -1244,7 +1249,7 @@
         if (!grid) return;
 
         grid.innerHTML = '';
-        const nameMap = { chat:'聊天', mailbox:'信封', moyu:'摸鱼', diary:'朝夕心记', fortune:'运势', mood:'心晴', calendar:'日历', decide:'抉择', stats:'统计', accounting:'记账' };
+        const nameMap = { chat:'聊天', mailbox:'信封', moyu:'摸鱼', diary:'朝夕心记', fortune:'运势', mood:'心晴', calendar:'日历', decide:'抉择', stats:'统计', accounting:'记账', shop:'商城', 'gift-cabinet':'礼物柜', pet:'萌宠屋', 'ta-phone':'TA的手机', map:'Zmilk地图' };
 
         Object.keys(defaultAppIcons).forEach(app => {
             const item = document.createElement('div');

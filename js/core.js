@@ -1731,7 +1731,8 @@ function createMessageFragment(msg, prevMsg, nextMsg, lastSenderRef) {
         messageHTML += `<div class="reply-indicator" data-reply-id="${msg.replyTo.id || ''}" style="cursor:pointer;" onclick="scrollToQuotedMessage(this)"><span class="reply-indicator-sender">${repliedSender}</span><span class="reply-indicator-text">${repliedText}</span></div>`;
     }
 
-    const isImageOnly = !msg.text && !!msg.image;
+    const isStickerOnly = !msg.text && !msg.image && !!msg.sticker;
+    const isImageOnly = (!msg.text && !!msg.image) || isStickerOnly;
     const isRedPacket = msg.type === 'red-packet';
     const isVoice = msg.type === 'voice';
     let content = msg.text ? `<div>${msg.text.replace(/\n/g, '<br>')}</div>` : '';
@@ -1753,6 +1754,11 @@ function createMessageFragment(msg, prevMsg, nextMsg, lastSenderRef) {
     } else if (isRedPacket) {
         content = window.renderRedPacketMessage ? window.renderRedPacketMessage(msg) : '<div style="padding:10px;color:#c4453c;">红包消息</div>';
     } else if (msg.image) content += `<img src="${msg.image}" class="message-image${isImageOnly ? ' message-image-only' : ''}" alt="图片" style="max-width:${isImageOnly ? '100px' : '100px'}; border-radius: 12px;${!isImageOnly ? ' margin-top: 6px;' : ''} cursor: pointer;" onclick="viewImage('${msg.image}')">`;
+    // 渲染表情包（sticker）
+    if (msg.sticker) {
+        const stickerSize = msg.sender === 'user' ? 100 : 120;
+        content += `<img src="${msg.sticker}" class="message-sticker" alt="表情包" style="max-width:${stickerSize}px;max-height:${stickerSize}px;border-radius:8px;${msg.text || msg.image ? ' margin-top:6px;' : ''} cursor:pointer;" onclick="viewImage('${msg.sticker}')">`;
+    }
     messageHTML += content;
 
     const messageDiv = document.createElement('div');
@@ -2153,6 +2159,22 @@ const addMessage = (message) => {
         };
         function updateReplyPreview() { window.updateReplyPreview(); }
 
+        // ── 聊天表情包预览（与文字框配套发送）──
+        window.setChatStickerPreview = function(src) {
+            window._pendingChatSticker = src;
+            const preview = document.getElementById('chat-sticker-preview');
+            const img = document.getElementById('chat-sticker-preview-img');
+            if (preview && img) {
+                img.src = src;
+                preview.style.display = 'block';
+            }
+        };
+        window.clearChatStickerPreview = function() {
+            window._pendingChatSticker = null;
+            const preview = document.getElementById('chat-sticker-preview');
+            if (preview) preview.style.display = 'none';
+        };
+
         // ── 对方拍一拍核心逻辑（提取为独立函数，供随机触发和测试指令共用）──
         window._triggerPartnerPoke = function() {
             let pokeAction = null;
@@ -2206,7 +2228,9 @@ const addMessage = (message) => {
         function sendMessage(textOverride = null, type = 'normal') {
             const text = textOverride || DOMElements.messageInput.value.trim();
             const imageFile = DOMElements.imageInput.files[0];
-            if (!text && !imageFile && type === 'normal') return;
+            // 检查是否有待发送的表情包
+            const pendingSticker = window._pendingChatSticker || null;
+            if (!text && !imageFile && !pendingSticker && type === 'normal') return;
 
             // ── 斜杠指令拦截 ──
             if (text && text.startsWith('/') && type === 'normal') {
@@ -2249,6 +2273,12 @@ const addMessage = (message) => {
                     replyTo: currentReplyTo,
                     type: type
                 };
+                // 如果有待发送的表情包，作为 sticker 字段附加
+                if (pendingSticker) {
+                    messageData.sticker = pendingSticker;
+                    window._pendingChatSticker = null;
+                    window.clearChatStickerPreview && window.clearChatStickerPreview();
+                }
                 if (type === 'system') messageData.sender = null;
 
                 addMessage(messageData);
