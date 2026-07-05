@@ -6,6 +6,9 @@
     const KEY_SIZE     = 'callWindowSize';
     const KEY_PILL_POS = 'callPillPos';
     const BG_LF_KEY    = 'callBgImageData';
+    const KEY_SESSION  = 'callInterruptedSession';      // 中断通话恢复
+    const SESSION_MAX_AGE = 24 * 60 * 60 * 1000;        // 超过24h的记录视为过期
+    const SESSION_MIN_DUR = 3000;                        // 通话不足3秒不提示恢复
 
     const S = {
         enabled:         localStorage.getItem(KEY_ENABLED) !== 'false',
@@ -27,6 +30,8 @@
         connectingTimer: null,
         randomCallTimer: null,
         isPartnerCall:   false,
+        lastSessionSave: 0,          // 上次自动保存session的时间戳(防崩溃)
+        _pendingResume:  null,       // 待恢复的session数据
     };
 
     const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -369,6 +374,74 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
 @keyframes cOrb{0%{transform:translate(0,0) rotate(0)}33%{transform:translate(18px,-14px) rotate(120deg)}66%{transform:translate(-10px,18px) rotate(240deg)}100%{transform:translate(0,0) rotate(360deg)}}
 @keyframes cWv{0%,100%{transform:scaleY(1);opacity:.5}50%{transform:scaleY(.32);opacity:.22}}
 @keyframes cCd{0%,80%,100%{transform:scale(.72);opacity:.3}40%{transform:scale(1.22);opacity:1}}
+
+#call-resume-overlay{
+    position:fixed;inset:0;z-index:99995;
+    display:none;align-items:center;justify-content:center;
+    background:rgba(0,0,0,.65);
+    backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);
+}
+#call-resume-overlay.visible{display:flex;animation:cFi .35s ease;}
+.call-resume-card{
+    width:300px;
+    background:linear-gradient(160deg,rgba(255,255,255,.11),rgba(255,255,255,.04));
+    border:1px solid rgba(255,255,255,.18);border-radius:32px;
+    padding:40px 28px 32px;
+    display:flex;flex-direction:column;align-items:center;gap:8px;color:#fff;
+    box-shadow:0 32px 80px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.15);
+    animation:cCu .45s cubic-bezier(.22,1,.36,1);
+    position:relative;overflow:hidden;
+}
+.call-resume-card::before{
+    content:'';position:absolute;inset:0;pointer-events:none;
+    background:radial-gradient(ellipse at 50% 0%,rgba(var(--accent-color-rgb,224,105,138),.28),transparent 65%);
+}
+.call-resume-icon-wrap{
+    width:72px;height:72px;border-radius:50%;
+    background:rgba(var(--accent-color-rgb,224,105,138),.18);
+    display:flex;align-items:center;justify-content:center;
+    margin-bottom:6px;position:relative;
+}
+.call-resume-icon-wrap i{font-size:30px;color:var(--accent-color,#e0698a);}
+.call-resume-icon-wrap::after{
+    content:'';position:absolute;inset:-8px;border-radius:50%;
+    border:1.5px solid rgba(255,255,255,.15);
+    animation:cRp 2.2s ease-in-out infinite;
+}
+.call-resume-avatar{
+    width:64px;height:64px;border-radius:50%;
+    background:var(--accent-color,#e0698a);overflow:hidden;
+    display:flex;align-items:center;justify-content:center;
+    border:2px solid rgba(255,255,255,.25);
+    box-shadow:0 6px 22px rgba(0,0,0,.4);
+}
+.call-resume-avatar img{width:100%;height:100%;object-fit:cover;}
+.call-resume-avatar i{font-size:24px;color:rgba(255,255,255,.82);}
+.call-resume-name{font-size:20px;font-weight:700;margin-top:6px;}
+.call-resume-duration{
+    font-size:28px;font-weight:800;letter-spacing:.04em;
+    color:rgba(255,255,255,.95);font-variant-numeric:tabular-nums;
+    margin-top:2px;
+}
+.call-resume-sub{font-size:12.5px;color:rgba(255,255,255,.48);margin-top:2px;}
+.call-resume-actions{display:flex;gap:16px;margin-top:24px;width:100%;}
+.call-resume-btn{
+    flex:1;padding:13px 0;border:none;border-radius:14px;
+    font-size:14px;font-weight:600;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;gap:7px;
+    transition:transform .15s,box-shadow .2s;font-family:inherit;
+}
+.call-resume-btn:active{transform:scale(.95);}
+.call-resume-continue{
+    background:linear-gradient(135deg,#4caf50,#2e7d32);
+    color:#fff;box-shadow:0 6px 20px rgba(76,175,80,.4);
+}
+.call-resume-continue:hover{box-shadow:0 8px 26px rgba(76,175,80,.55);}
+.call-resume-end{
+    background:rgba(255,255,255,.1);color:rgba(255,255,255,.7);
+    border:1px solid rgba(255,255,255,.15);
+}
+.call-resume-end:hover{background:rgba(255,82,82,.3);color:#fff;border-color:rgba(255,82,82,.4);}
         `;
         document.head.appendChild(el);
     }
@@ -474,6 +547,26 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
   <span class="call-mini-dot"></span>
   <button class="call-mini-hangup" id="call-mini-hangup">${SVG_HU}</button>
 </div>
+
+<div id="call-resume-overlay">
+  <div class="call-resume-card">
+    <div class="call-resume-icon-wrap">
+      <i class="fas fa-phone-alt"></i>
+    </div>
+    <div class="call-resume-avatar" id="call-resume-avatar"><i class="fas fa-user"></i></div>
+    <div class="call-resume-name" id="call-resume-name">对方</div>
+    <div class="call-resume-duration" id="call-resume-duration">00:00</div>
+    <div class="call-resume-sub" id="call-resume-sub">上次通话因页面退出而中断</div>
+    <div class="call-resume-actions">
+      <button class="call-resume-btn call-resume-end" id="call-resume-end">
+        <i class="fas fa-phone-slash" style="font-size:13px;"></i>结束通话
+      </button>
+      <button class="call-resume-btn call-resume-continue" id="call-resume-continue">
+        <i class="fas fa-phone" style="font-size:13px;"></i>继续通话
+      </button>
+    </div>
+  </div>
+</div>
         `;
         document.body.appendChild(root);
     }
@@ -524,6 +617,11 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
         const b = document.getElementById('call-mini-timer');
         if (a) a.textContent = t;
         if (b) b.textContent = t;
+        // 每 5 秒自动保存通话状态，防止页面闪退时丢失
+        if (S.elapsed - S.lastSessionSave > 5000) {
+            S.lastSessionSave = S.elapsed;
+            saveSession();
+        }
         S.timerRAF = requestAnimationFrame(tick);
     }
 
@@ -532,6 +630,108 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
         if (!img) return;
         if (S.bgImage) { img.src = S.bgImage; img.style.display = 'block'; }
         else { img.src = ''; img.style.display = 'none'; }
+    }
+
+    /* ── 通话中断恢复：保存 / 清除 / 检测 / 恢复 ── */
+
+    // 保存当前通话状态到 localStorage（用于刷新/闪退后恢复）
+    function saveSession() {
+        if (!S.active || !S.startTime) return;
+        const session = {
+            active:       true,
+            elapsed:      Date.now() - S.startTime,
+            isPartnerCall:S.isPartnerCall,
+            timestamp:    Date.now(),
+            partnerName:  getName(),
+            minimized:    S.minimized,
+            immersive:    S.immersive,
+        };
+        try { localStorage.setItem(KEY_SESSION, JSON.stringify(session)); } catch(_) {}
+    }
+
+    function clearSession() {
+        try { localStorage.removeItem(KEY_SESSION); } catch(_) {}
+        S.lastSessionSave = 0;
+    }
+
+    // 页面加载后检测是否有中断的通话，弹窗询问是否恢复
+    function checkAndResumeCall() {
+        let session = null;
+        try { session = JSON.parse(localStorage.getItem(KEY_SESSION)); } catch(_) { return; }
+        if (!session || !session.active || !session.elapsed) { clearSession(); return; }
+
+        // 超过有效期 → 自动结束并清除
+        if (Date.now() - session.timestamp > SESSION_MAX_AGE) {
+            if (session.elapsed > 2000) sendCallEvent('fa-video', '视频通话已结束', fmt(session.elapsed));
+            clearSession();
+            return;
+        }
+        // 通话时间太短 → 不值得恢复
+        if (session.elapsed < SESSION_MIN_DUR) { clearSession(); return; }
+
+        showResumeDialog(session);
+    }
+
+    function showResumeDialog(session) {
+        const ov = document.getElementById('call-resume-overlay');
+        if (!ov) return;
+
+        const nameEl = document.getElementById('call-resume-name');
+        const durEl  = document.getElementById('call-resume-duration');
+        const avEl   = document.getElementById('call-resume-avatar');
+        const subEl  = document.getElementById('call-resume-sub');
+
+        if (nameEl) nameEl.textContent = session.partnerName || getName();
+        if (durEl)  durEl.textContent  = fmt(session.elapsed);
+        if (subEl)  subEl.textContent  = '上次通话因页面退出而中断';
+
+        const src = getAvSrc();
+        if (avEl) avEl.innerHTML = src
+            ? `<img src="${src}" alt="" style="width:100%;height:100%;object-fit:cover;">`
+            : `<i class="fas fa-user"></i>`;
+
+        S._pendingResume = session;
+        ov.classList.add('visible');
+    }
+
+    // 恢复中断的通话（保留已通话时长）
+    function resumeCall(session) {
+        S.active       = true;
+        S.startTime    = Date.now() - session.elapsed;
+        S.elapsed      = session.elapsed;
+        S.minimized    = false;
+        S.isPartnerCall= session.isPartnerCall || false;
+        S.immersive    = false;
+        document.getElementById('call-window')?.classList.remove('immersive');
+
+        ['call-inc-avatar','call-conn-avatar','call-win-avatar','call-mini-av'].forEach(fillAv);
+        ['call-conn-name','call-win-name','call-mini-name'].forEach(fillNm);
+        applyBg(); positionWindow();
+
+        const win  = document.getElementById('call-window');
+        const body = document.getElementById('call-window-body');
+        const conn = document.getElementById('call-connecting-state');
+        const timerEl = document.getElementById('call-timer-display');
+        if (win)    win.classList.add('visible');
+        if (conn)   conn.classList.remove('visible');
+        if (body)   body.style.display = '';
+        if (timerEl) timerEl.textContent = fmt(session.elapsed);
+
+        S.lastSessionSave = session.elapsed;
+        tick();
+        clearSession();
+
+        if (typeof showNotification === 'function')
+            showNotification('通话已恢复 · 继续与' + getName() + '的视频通话', 'success', 3000);
+    }
+
+    // 放弃恢复，正常结束通话并记录
+    function endInterruptedCall(session) {
+        if (session.elapsed > 2000)
+            sendCallEvent('fa-video', '视频通话已结束', fmt(session.elapsed));
+        if (typeof showNotification === 'function')
+            showNotification('通话已结束 · ' + fmt(session.elapsed), 'info', 3000);
+        clearSession();
     }
 
     function positionWindow() {
@@ -592,6 +792,7 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
 
     function startCall(isPartner) {
         if (!S.enabled) return;
+        clearSession();
         S.active = true; S.startTime = null; S.elapsed = 0;
         S.minimized = false; S.isPartnerCall = !!isPartner; S.immersive = false;
         document.getElementById('call-window')?.classList.remove('immersive');
@@ -651,6 +852,7 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
         S.active = false; S.startTime = null;
         cancelAnimationFrame(S.timerRAF);
         clearTimeout(S.connectingTimer); clearTimeout(S.incomingTimer);
+        clearSession();
 
         ['call-window','call-mini-pill','call-incoming-overlay'].forEach(id => {
             const e = document.getElementById(id);
@@ -931,6 +1133,16 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
 
         document.getElementById('call-hangup-btn')?.addEventListener('click', endCall);
         document.getElementById('call-mini-hangup')?.addEventListener('click', e => { e.stopPropagation(); endCall(); });
+
+        // 通话恢复对话框按钮
+        document.getElementById('call-resume-continue')?.addEventListener('click', () => {
+            document.getElementById('call-resume-overlay')?.classList.remove('visible');
+            if (S._pendingResume) { resumeCall(S._pendingResume); S._pendingResume = null; }
+        });
+        document.getElementById('call-resume-end')?.addEventListener('click', () => {
+            document.getElementById('call-resume-overlay')?.classList.remove('visible');
+            if (S._pendingResume) { endInterruptedCall(S._pendingResume); S._pendingResume = null; }
+        });
         document.getElementById('call-minimize-btn')?.addEventListener('click', minimizeWindow);
         document.getElementById('call-mini-pill')?.addEventListener('click', e => {
             if (e.target.closest('.call-mini-hangup')) return;
@@ -985,20 +1197,22 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
 
     window.callFeature = { startCall, endCall, showIncomingCall, restoreWindow, minimizeWindow };
 
-    // 页面刷新/关闭时，如果正在通话则自动挂断并保存记录
-    window.addEventListener('beforeunload', function() {
+    // 页面刷新/关闭时，如果正在通话则保存状态以便恢复
+    function handlePageUnload() {
         if (S.active) {
-            const dur = S.elapsed;
+            saveSession();
             S.active = false; S.startTime = null;
             cancelAnimationFrame(S.timerRAF);
             clearTimeout(S.connectingTimer); clearTimeout(S.incomingTimer);
-            sendCallMsg(dur);
             // 确保同步保存，不依赖 throttledSaveData 的 500ms 延迟
             if (typeof window._backupCriticalData === 'function') {
                 window._backupCriticalData();
             }
         }
-    });
+    }
+    window.addEventListener('beforeunload', handlePageUnload);
+    // pagehide 在移动端比 beforeunload 更可靠
+    window.addEventListener('pagehide', handlePageUnload);
 
     function init() {
         injectCSS();
@@ -1009,6 +1223,8 @@ html:not([data-theme="dark"])[data-color-theme="black-white"] .message-sent{
         const late = () => {
             injectToolbarBtn();
             if (S.enabled) scheduleRandomCall();
+            // 检测是否有中断的通话，弹窗询问是否恢复
+            checkAndResumeCall();
             // 首次进入聊天时请求通知权限（用于来电跨App提醒）
             if (S.enabled && 'Notification' in window && Notification.permission === 'default') {
                 // 延迟请求，避免一进来就弹权限框
