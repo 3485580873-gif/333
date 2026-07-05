@@ -687,7 +687,7 @@ if (_chatSettingsEl) _chatSettingsEl.addEventListener('click', () => {
             const fontUrlInput = document.getElementById('custom-font-url');
             const applyFontBtn = document.getElementById('apply-font-btn');
             
-            if (fontUrlInput) fontUrlInput.value = settings.customFontUrl || "";
+            if (fontUrlInput) fontUrlInput.value = settings.customFontUrl === '__local__' ? '' : (settings.customFontUrl || "");
 
             if (applyFontBtn) {
                 applyFontBtn.addEventListener('click', () => {
@@ -703,10 +703,85 @@ if (_chatSettingsEl) _chatSettingsEl.addEventListener('click', () => {
                 });
             }
 
+            // 本地上传字体文件
+            const uploadFontBtn = document.getElementById('upload-font-btn');
+            const localFontInput = document.getElementById('local-font-input');
+            const localFontName = document.getElementById('local-font-name');
+            
+            if (uploadFontBtn && localFontInput) {
+                uploadFontBtn.addEventListener('click', () => {
+                    localFontInput.click();
+                });
+                
+                localFontInput.addEventListener('change', async (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    
+                    const validExts = ['.ttf', '.otf', '.woff', '.woff2'];
+                    const ext = '.' + file.name.split('.').pop().toLowerCase();
+                    if (!validExts.includes(ext)) {
+                        showNotification('请选择 TTF/OTF/WOFF/WOFF2 格式的字体文件', 'error');
+                        return;
+                    }
+                    
+                    showNotification('正在加载本地字体...', 'info', 1500);
+                    
+                    try {
+                        const arrayBuffer = await file.arrayBuffer();
+                        const base64 = arrayBufferToBase64(arrayBuffer);
+                        
+                        await localforage.setItem(getStorageKey('localFontFile'), {
+                            name: file.name,
+                            data: base64,
+                            mime: file.type || 'font/' + ext.slice(1)
+                        });
+                        
+                        settings.customFontUrl = '__local__';
+                        settings.localFontName = file.name;
+                        
+                        const blob = new Blob([arrayBuffer], { type: file.type || 'font/' + ext.slice(1) });
+                        const blobUrl = URL.createObjectURL(blob);
+                        
+                        await applyCustomFont(blobUrl);
+                        
+                        if (fontUrlInput) fontUrlInput.value = '';
+                        if (localFontName) {
+                            localFontName.textContent = '\u2705 已加载: ' + file.name;
+                        }
+                        
+                        throttledSaveData();
+                        showNotification('本地字体已应用: ' + file.name, 'success');
+                    } catch (err) {
+                        console.error('本地字体加载失败:', err);
+                        showNotification('字体加载失败，请检查文件是否有效', 'error');
+                    }
+                    
+                    localFontInput.value = '';
+                });
+            }
+            
+            // 启动时恢复上次的本地字体（如果有）
+            (async () => {
+                try {
+                    const saved = await localforage.getItem(getStorageKey('localFontFile'));
+                    if (saved && saved.data && settings.customFontUrl === '__local__') {
+                        const binaryStr = atob(saved.data);
+                        const bytes = new Uint8Array(binaryStr.length);
+                        for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+                        const blob = new Blob([bytes], { type: saved.mime || 'font/ttf' });
+                        const blobUrl = URL.createObjectURL(blob);
+                        await applyCustomFont(blobUrl);
+                        if (localFontName) {
+                            localFontName.textContent = '\u2705 已加载: ' + saved.name;
+                        }
+                    }
+                } catch(e) {}
+            })();
+
             
             const followSystemBtn = document.getElementById('follow-system-font-btn');
             if (followSystemBtn) {
-                followSystemBtn.addEventListener('click', () => {
+                followSystemBtn.addEventListener('click', async () => {
                     
                     const systemFontStack = 'system-ui, -apple-system, sans-serif';
                     
@@ -715,6 +790,13 @@ if (_chatSettingsEl) _chatSettingsEl.addEventListener('click', () => {
                     
                     
                     settings.customFontUrl = "";
+                    settings.localFontName = "";
+                    
+                    // 清除本地字体缓存
+                    try { await localforage.removeItem(getStorageKey('localFontFile')); } catch(e) {}
+                    
+                    const lnf = document.getElementById('local-font-name');
+                    if (lnf) lnf.textContent = '';
                     
                     
                     settings.messageFontFamily = systemFontStack;
@@ -1327,7 +1409,10 @@ if (_chatSettingsEl) _chatSettingsEl.addEventListener('click', () => {
                     if (fontSizeValueEl) fontSizeValueEl.textContent = `${settings.fontSize}px`;
                 }
                 const fontUrlInputEl = document.getElementById('custom-font-url');
-                if (fontUrlInputEl) fontUrlInputEl.value = settings.customFontUrl || '';
+                if (fontUrlInputEl) fontUrlInputEl.value = settings.customFontUrl === '__local__' ? '' : (settings.customFontUrl || '');
+                // 同步显示本地字体名称
+                const lnfEl = document.getElementById('local-font-name');
+                if (lnfEl) lnfEl.textContent = settings.customFontUrl === '__local__' && settings.localFontName ? '\u2705 已加载: ' + settings.localFontName : '';
                 const cssTextareaEl = document.getElementById('custom-bubble-css');
                 if (cssTextareaEl) cssTextareaEl.value = settings.customBubbleCss || '';
                 const globalCssTextareaEl = document.getElementById('custom-global-css');

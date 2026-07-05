@@ -603,9 +603,9 @@ function populateThemeSelector() {
                 }
             }
             
-            if (scheme.customFontUrl) {
+            if (scheme.customFontUrl && scheme.customFontUrl !== '__local__') {
                 try { applyCustomFont(scheme.customFontUrl); } catch(e) {}
-            } else {
+            } else if (scheme.customFontUrl !== '__local__') {
                 document.documentElement.style.setProperty('--message-font-family', scheme.messageFontFamily || "'Noto Serif SC', serif");
                 document.documentElement.style.setProperty('--font-family', scheme.messageFontFamily || "'Noto Serif SC', serif");
             }

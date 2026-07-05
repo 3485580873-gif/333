@@ -2712,6 +2712,19 @@
                 <input type="range" min="12" max="24" value="16" class="font-size-slider" id="font-size-slider">
                 <span class="font-size-value" id="font-size-value">16px</span>
             </div>
+            <!-- 本地上传字体 -->
+            <div style="margin-top: 12px; padding: 10px 12px; background: var(--bg-secondary); border-radius: 10px; border: 1px dashed var(--border-color);">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <button id="upload-font-btn" class="modal-btn modal-btn-primary" style="padding: 7px 14px; font-size: 12px; white-space: nowrap; display: flex; align-items: center; gap: 5px;" title="上传本地字体文件">
+                        <i class="fas fa-upload"></i> 本地上传字体
+                    </button>
+                    <span id="local-font-name" style="font-size: 12px; color: var(--accent-color); flex: 1; word-break: break-all;"></span>
+                </div>
+                <div style="font-size: 10px; color: var(--text-secondary); margin-top: 6px; opacity: 0.7;">
+                    支持 TTF / OTF / WOFF / WOFF2 格式，上传后自动应用
+                </div>
+            </div>
+            <input type="file" id="local-font-input" accept=".ttf,.otf,.woff,.woff2" style="display: none;">
             <div style="margin-top: 10px;">
                 <label style="font-size: 12px; color: var(--text-secondary); display:block; margin-bottom:5px;">字体链接 (CSS/TTF):</label>
                 <div style="display: flex; gap: 8px;">

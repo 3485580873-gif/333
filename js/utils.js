@@ -315,6 +315,16 @@ async function applyCustomFont(url) {
     }
 }
 
+function arrayBufferToBase64(buffer) {
+    let binary = '';
+    const bytes = new Uint8Array(buffer);
+    const chunkSize = 8192;
+    for (let i = 0; i < bytes.byteLength; i += chunkSize) {
+        binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+    }
+    return btoa(binary);
+}
+
 function applyCustomBubbleCss(cssCode) {
     const styleId = 'user-custom-bubble-style';
     let styleTag = document.getElementById(styleId);
