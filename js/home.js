@@ -61,17 +61,36 @@
         localStorage.removeItem(homeKey(key));
     }
 
-    /** 读取全局 Home 设置（不受开关影响） */
+    /** 读取全局 Home 设置（不受开关影响，优先 localStorage，回退 localforage） */
     function homeGetGlobal(key) {
-        return localStorage.getItem(key);
+        var v = localStorage.getItem(key);
+        if (v) return v;
+        // localStorage 没有可能是被 quota 清空，异步从 localforage 恢复
+        if (typeof localforage !== 'undefined') {
+            localforage.getItem(key).then(function(lv) {
+                if (lv) {
+                    // 恢复到 localStorage 供下次同步读取（如果放得下）
+                    try { localStorage.setItem(key, lv); } catch(e) {}
+                    // 派发事件让界面刷新
+                    window.dispatchEvent(new CustomEvent('homeGlobalUpdated', { detail: { key, value: lv } }));
+                }
+            }).catch(function(){});
+        }
+        return v;
     }
 
     /** 写入全局 Home 设置（不受开关影响） */
     function homeSetGlobal(key, value) {
-        // 同时写入 localStorage 和 localforage，确保各模块都能读取
-        try {
-            localStorage.setItem(key, value);
-        } catch(e) {}
+        // 大值（>100KB，通常是头像/背景 base64）只写 localforage，避免同步阻塞主线程导致卡顿
+        var isLarge = typeof value === 'string' && value.length > 100 * 1024;
+        if (!isLarge) {
+            try {
+                localStorage.setItem(key, value);
+            } catch(e) {}
+        } else {
+            // 大值从 localStorage 移除，避免残留旧数据
+            try { localStorage.removeItem(key); } catch(e) {}
+        }
         if (typeof localforage !== 'undefined') {
             localforage.setItem(key, value).catch(() => {});
         }
@@ -83,6 +102,26 @@
     window.homeGetGlobal = homeGetGlobal;
     window.homeSetGlobal = homeSetGlobal;
     window.homeGetItem = homeGetItem;
+
+    // 监听 localforage 异步恢复的全局数据，更新头像 DOM
+    window.addEventListener('homeGlobalUpdated', function(e) {
+        var detail = e.detail || {};
+        var key = detail.key;
+        var value = detail.value;
+        if (!key || !value) return;
+        // 头像恢复：home_avatar_me / home_avatar_partner
+        var m = key.match(/^home_avatar_(me|partner)$/);
+        if (m) {
+            var who = m[1];
+            if (profileData[who]) profileData[who].avatar = value;
+            var avatarEl = document.getElementById('avatar-' + who);
+            if (avatarEl) avatarEl.src = value;
+            var customizeAvatar = document.getElementById('customize-avatar-' + who);
+            if (customizeAvatar) customizeAvatar.src = value;
+            var heroAvatar = document.getElementById('hero-avatar-' + who);
+            if (heroAvatar) heroAvatar.src = value;
+        }
+    });
 
     /** 删除全局 Home 设置（不受开关影响） */
     function homeRemoveGlobal(key) {
@@ -471,21 +510,20 @@
             ? window.compressImageFile(file, compressOpts)
             : new Promise(function(res){ const r=new FileReader(); r.onload=function(e){res(e.target.result);}; r.readAsDataURL(file); });
 
-        compressP.then(function(url) {
+        compressP.then(async function(url) {
             if (!url) return;
             const bgValue = `url(${url}) center/cover no-repeat`;
             const pageBg = document.getElementById('home-page-bg');
             if (pageBg) pageBg.style.background = bgValue;
 
             document.querySelectorAll('#page-bg-presets .bg-preset').forEach(el => el.classList.remove('active'));
+            // 页面背景统一走大容量存储（localforage），避免大 base64 撑爆 localStorage 后刷新丢失
             try {
-                homeSetItem('home_page_bg_custom', url);
+                await homeSetLargeItem('home_page_bg_custom', url);
             } catch (e) {
-                // localStorage 超限时降级到 localforage
-                if (typeof localforage !== 'undefined') {
-                    localforage.setItem(homeKey('home_page_bg_custom'), url).catch(() => {});
-                }
-                if (typeof showNotification === 'function') showNotification('图片较大，已存入扩展存储', 'warning', 2000);
+                console.warn('[uploadPageBg] 保存失败:', e);
+                if (typeof showNotification === 'function') showNotification('图片保存失败，请换张试试', 'error', 2500);
+                return;
             }
             homeSetItem('home_page_bg', 'custom');
 
@@ -506,8 +544,8 @@
             return;
         }
         
-        // 获取当前自定义背景URL
-        let savedCustomUrl = homeGetItem('home_page_bg_custom');
+        // 获取当前自定义背景URL（从大容量存储读取）
+        let savedCustomUrl = await homeGetLargeItem('home_page_bg_custom');
         if (!savedCustomUrl && currentBg.includes('url(')) {
             const match = currentBg.match(/url\(["']?([^"')]+)["']?\)/);
             if (match) savedCustomUrl = match[1];
@@ -604,7 +642,7 @@
             preset.onclick = function() {
                 const pageBg = document.getElementById('home-page-bg');
                 if (pageBg) pageBg.style.background = `url(${url}) center/cover no-repeat`;
-                homeSetItem('home_page_bg_custom', url);
+                homeSetLargeItem('home_page_bg_custom', url);
                 homeSetItem('home_page_bg', 'custom');
                 document.querySelectorAll('#page-bg-presets .bg-preset').forEach(el => el.classList.remove('active'));
                 preset.classList.add('active');
@@ -841,12 +879,12 @@
         if (!bgValue) {
             // 重置为默认背景
             pageBg.style.background = '';
-            homeRemoveItem('home_page_bg_custom');
             homeRemoveItem('home_page_bg');
+            if (typeof localforage !== 'undefined') localforage.removeItem(homeKey('home_page_bg_custom')).catch(() => {});
         } else {
             pageBg.style.background = bgValue;
-            // 保存为自定义背景
-            homeSetItem('home_page_bg_custom', bgValue);
+            // 保存为自定义背景（走大容量存储）
+            homeSetLargeItem('home_page_bg_custom', bgValue);
             homeSetItem('home_page_bg', 'custom');
         }
     };
@@ -1878,7 +1916,7 @@
         // 页面背景
         const savedPageBg = homeGetItem('home_page_bg');
         if (savedPageBg === 'custom') {
-            const customUrl = homeGetItem('home_page_bg_custom');
+            const customUrl = await homeGetLargeItem('home_page_bg_custom');
             if (customUrl) {
                 const pageBg = document.getElementById('home-page-bg');
                 if (pageBg) pageBg.style.background = `url(${customUrl}) center/cover no-repeat`;

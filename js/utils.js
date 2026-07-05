@@ -602,6 +602,10 @@ function compressImageFile(file, options) {
 
         // GIF 不走 canvas（会丢动画），直接读取 base64
         if (isGif) {
+            // GIF 体积过大时提示用户（仍允许使用，但可能卡顿）
+            if (file.size > 2 * 1024 * 1024) {
+                console.warn('[compressImageFile] GIF 体积较大 (' + (file.size/1024/1024).toFixed(1) + 'MB)，可能导致卡顿');
+            }
             var gr = new FileReader();
             gr.onload = function (ev) { resolve(ev.target.result); };
             gr.onerror = function () { resolve(null); };
@@ -653,6 +657,25 @@ function compressImageFile(file, options) {
                     var outType = isPng ? 'image/png' : 'image/jpeg';
                     var outQuality = isPng ? undefined : quality;
                     var result = canvas.toDataURL(outType, outQuality);
+
+                    // 二次压缩：如果结果仍超过 1.5MB，逐步降低质量和尺寸
+                    if (!isPng && result.length > 1.5 * 1024 * 1024) {
+                        var q2 = Math.min(quality, 0.5);
+                        var scale2 = 0.7;
+                        var cw2 = Math.max(1, Math.round(cw * scale2));
+                        var ch2 = Math.max(1, Math.round(ch * scale2));
+                        var canvas2 = document.createElement('canvas');
+                        canvas2.width = cw2;
+                        canvas2.height = ch2;
+                        var ctx2 = canvas2.getContext('2d');
+                        ctx2.fillStyle = '#ffffff';
+                        ctx2.fillRect(0, 0, cw2, ch2);
+                        ctx2.drawImage(img, 0, 0, cw2, ch2);
+                        var result2 = canvas2.toDataURL('image/jpeg', q2);
+                        if (result2.length < result.length) {
+                            result = result2;
+                        }
+                    }
 
                     // 如果压缩后反而更大（罕见，小图高质量），回退原始
                     if (result.length > dataUrl.length && !force) {
