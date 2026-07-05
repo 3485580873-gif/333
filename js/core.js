@@ -2733,18 +2733,19 @@ if (partnerPersonas && partnerPersonas.length > 0 && Math.random() < 0.3) {
                             if (randomVoice.audioUrl) {
                                 try {
                                     const tmpA = new Audio(randomVoice.audioUrl);
+                                    let voiceSent = false;
+                                    const doVoiceSend = () => {
+                                        if (voiceSent) return;
+                                        voiceSent = true;
+                                        addMessage(voiceMsg);
+                                        playSound('message');
+                                    };
                                     tmpA.addEventListener('loadedmetadata', () => {
                                         voiceMsg.voiceDuration = Math.round(tmpA.duration) || 0;
-                                        addMessage(voiceMsg);
-                                        playSound('message');
+                                        doVoiceSend();
                                     });
-                                    tmpA.addEventListener('canplaythrough', () => {
-                                        voiceMsg.voiceDuration = Math.round(tmpA.duration) || 0;
-                                        addMessage(voiceMsg);
-                                        playSound('message');
-                                    });
-                                    tmpA.addEventListener('error', () => { addMessage(voiceMsg); playSound('message'); });
-                                    setTimeout(() => { addMessage(voiceMsg); playSound('message'); }, 2000);
+                                    tmpA.addEventListener('error', () => { doVoiceSend(); });
+                                    setTimeout(doVoiceSend, 2000);
                                 } catch(e) { addMessage(voiceMsg); playSound('message'); }
                             } else {
                                 addMessage(voiceMsg);
