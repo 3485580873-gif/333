@@ -2017,3 +2017,210 @@ html[data-theme="dark"] .home-widget--msg .hw-msg-preview { color: #c898a8 !impo
     font-size: 14px !important;
     color: #c898a8 !important;
 }
+
+/* ══════════════════════════════════════════════════
+   ✿ 玻璃形态效果：导航栏 + 卡片（与背景图融合）
+   ══════════════════════════════════════════════════ */
+
+/* 底部导航栏：全玻璃效果 */
+.home-nav-bar {
+    background: rgba(255,255,255,0.25) !important;
+    backdrop-filter: blur(24px) saturate(160%) brightness(1.05) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(160%) brightness(1.05) !important;
+    border: 1px solid rgba(255,255,255,0.45) !important;
+    box-shadow:
+        0 4px 20px rgba(0,0,0,0.08),
+        inset 0 1px 0 rgba(255,255,255,0.7) !important;
+}
+.home-nav-bar::before {
+    background: linear-gradient(180deg, rgba(255,255,255,0.3) 0%, transparent 100%) !important;
+}
+
+/* 导航项激活态：玻璃深一点 */
+.home-nav-item.active {
+    background: rgba(255,255,255,0.35) !important;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.6), 0 2px 8px rgba(0,0,0,0.06) !important;
+}
+
+/* 导航图标颜色使用主题变量（外观设置里可改） */
+.home-nav-item .home-nav-icon i {
+    color: var(--home-accent-color, #c5a47e) !important;
+}
+.home-nav-item.active .home-nav-icon i {
+    color: var(--home-accent-color, #c5a47e) !important;
+    filter: brightness(1.1);
+}
+.home-nav-item .home-nav-label {
+    color: var(--home-subtitle-color, #9a7a85) !important;
+}
+.home-nav-item.active .home-nav-label {
+    color: var(--home-accent-color, #c5a47e) !important;
+    font-weight: 700 !important;
+}
+
+/* Hero 卡片：玻璃底部区域 */
+.hero-compact-inner,
+.hero-compact-inner--stacked {
+    background: rgba(255,255,255,0.28) !important;
+    backdrop-filter: blur(20px) saturate(150%) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(150%) !important;
+    border-top: 1px solid rgba(255,255,255,0.5) !important;
+}
+
+/* Hero card 外框玻璃 */
+.hero-card {
+    background: rgba(255,255,255,0.12) !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+    border: 1.5px solid rgba(255,255,255,0.55) !important;
+}
+
+/* Widget 卡片：玻璃效果（无自定义背景时） */
+.home-widget:not([style*="background-image"]) {
+    background: rgba(255,255,255,0.30) !important;
+    backdrop-filter: blur(18px) saturate(150%) !important;
+    -webkit-backdrop-filter: blur(18px) saturate(150%) !important;
+    border: 1.5px solid rgba(255,255,255,0.50) !important;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.6) !important;
+}
+/* 有自定义背景图时，widget 加半透明遮罩让文字可读 */
+.home-widget[style*="background-image"] {
+    border: 1.5px solid rgba(255,255,255,0.4) !important;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.10) !important;
+}
+.home-widget[style*="background-image"] .hw-icon,
+.home-widget[style*="background-image"] .hw-label,
+.home-widget[style*="background-image"] .hw-value,
+.home-widget[style*="background-image"] .hw-unit {
+    text-shadow: 0 1px 4px rgba(0,0,0,0.3) !important;
+}
+
+/* Widget 天数颜色使用主题强调色 */
+.home-widget--days .hw-value {
+    color: var(--home-accent-color, #c5a47e) !important;
+}
+.home-widget--days .hw-label,
+.home-widget--days .hw-unit {
+    color: var(--home-subtitle-color, #9a7a85) !important;
+}
+
+/* 时钟颜色 */
+.standalone-time .time-display {
+    color: var(--home-title-color, #2e1a22) !important;
+}
+.standalone-time .date-display {
+    color: var(--home-subtitle-color, #b898a8) !important;
+}
+
+/* 深色模式 */
+html[data-theme="dark"] .home-nav-bar {
+    background: rgba(20,12,16,0.45) !important;
+    border-color: rgba(255,255,255,0.12) !important;
+}
+html[data-theme="dark"] .hero-compact-inner,
+html[data-theme="dark"] .hero-compact-inner--stacked {
+    background: rgba(20,12,16,0.45) !important;
+}
+html[data-theme="dark"] .home-widget:not([style*="background-image"]) {
+    background: rgba(20,12,16,0.40) !important;
+    border-color: rgba(255,255,255,0.10) !important;
+}
+
+/* ══════════════════════════════════════════════════
+   ✿ 天数 2x2 iOS 正方形小组件
+   ══════════════════════════════════════════════════ */
+
+/* 让 app-grid 支持不同尺寸的元素 */
+.apps-grid {
+    grid-template-columns: repeat(4, 1fr) !important;
+    grid-auto-rows: auto !important;
+    align-items: start !important;
+}
+
+.app-item--days-widget {
+    grid-column: span 2 !important;
+    grid-row: span 2 !important;
+    padding: 0 !important;
+    border-radius: 20px !important;
+    overflow: hidden !important;
+    cursor: pointer !important;
+    transition: transform 0.2s cubic-bezier(0.34,1.3,0.64,1) !important;
+}
+.app-item--days-widget:active {
+    transform: scale(0.94) !important;
+}
+
+.days-widget-inner {
+    width: 100% !important;
+    aspect-ratio: 1 / 1 !important;   /* 正方形 */
+    background: rgba(255,255,255,0.30);
+    backdrop-filter: blur(20px) saturate(150%);
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
+    border: 1.5px solid rgba(255,255,255,0.55);
+    border-radius: 20px !important;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.07), inset 0 1px 0 rgba(255,255,255,0.7);
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    justify-content: space-between !important;
+    padding: 14px !important;
+    background-size: cover !important;
+    background-position: center !important;
+}
+
+/* 顶部标签 */
+.dw-top {
+    font-size: 11px;
+    color: var(--home-accent-color, #c5a47e);
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+}
+.dw-label { color: var(--home-subtitle-color, #9a7a85); }
+
+/* 大数字 */
+.dw-count {
+    font-size: 48px !important;
+    font-weight: 100 !important;
+    color: var(--home-title-color, #2e1a22) !important;
+    line-height: 1 !important;
+    letter-spacing: -1px !important;
+    margin-top: 4px !important;
+}
+
+/* 底部 */
+.dw-bottom {
+    font-size: 11px;
+    color: var(--home-subtitle-color, #b898a8);
+    letter-spacing: 0.3px;
+}
+
+/* ══ 颜色变量修正：不再硬编码，全用主题变量 ══ */
+.standalone-time .time-display {
+    color: var(--home-title-color, #2e1a22) !important;
+    font-size: 52px !important;
+    font-weight: 100 !important;
+    letter-spacing: 4px !important;
+}
+.standalone-time .date-display {
+    color: var(--home-subtitle-color, #b898a8) !important;
+    font-size: 13px !important;
+    letter-spacing: 2.5px !important;
+}
+.hero-compact-text--sub .hero-subtitle {
+    color: var(--home-subtitle-color, #b898a8) !important;
+}
+
+/* ══ 卡片背景：应用到 hero-card 和 days-widget-inner ══ */
+.days-widget-inner[style*="background-image"] {
+    background: none;
+    border: 1.5px solid rgba(255,255,255,0.4);
+}
+.days-widget-inner[style*="background-image"] .dw-count,
+.days-widget-inner[style*="background-image"] .dw-top,
+.days-widget-inner[style*="background-image"] .dw-bottom,
+.days-widget-inner[style*="background-image"] .dw-label {
+    text-shadow: 0 1px 5px rgba(0,0,0,0.35);
+}
