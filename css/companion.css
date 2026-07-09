@@ -1696,3 +1696,30 @@ html[data-theme="dark"] .companion-mode-card i {
     background: rgba(var(--accent-color-rgb, 197,164,126), 0.45);
     color: #fff;
 }
+
+
+/* ─── mysite 整合适配：进入陪伴模式时隐藏主界面元素 ─── */
+body.companion-active .header,
+body.companion-active .input-area-wrapper,
+body.companion-active .main-chat-area,
+body.companion-active .home-page-bg,
+body.companion-active #spark-icon,
+body.companion-active #player,
+body.companion-active #playlist,
+body.companion-active #immersive-exit-btn {
+    display: none !important;
+    pointer-events: none !important;
+}
+
+/* companion-page在陪伴模式下必须全屏覆盖 */
+body.companion-active #companion-page {
+    z-index: 200000000 !important;
+}
+/* 陪伴系统弹窗也要在最顶层 */
+.companion-modal {
+    z-index: 200000001 !important;
+}
+/* companion-page过渡画面也要高于modal */
+.companion-transition-overlay {
+    z-index: 200000002 !important;
+}
