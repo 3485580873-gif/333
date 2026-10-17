@@ -1,0 +1,112 @@
+/* ============================================================
+   look.css — 外观装扮 / 主题配色（颜色展示框）
+   ------------------------------------------------------------
+   用户 2026-10-17 拍板：**要的是「颜色展示框」，不是放个文字**。
+   每张卡 = 一整块该主题的渐变色（iOS 墙纸缩略图那样铺满），
+   底部压一条小标签写名字，选中态右上角一个对勾。
+   ============================================================ */
+
+.look-body{padding:14px 14px 28px}
+
+.look-grid{
+    display:grid;
+    grid-template-columns:repeat(2,1fr);
+    gap:12px;
+}
+
+/* ---------- 一张主题卡 = 一个颜色展示框 ---------- */
+.look-card{
+    position:relative;
+    display:block;
+    width:100%;
+    aspect-ratio:1 / 1;
+    padding:0;
+    border:0;
+    border-radius:20px;
+    overflow:hidden;
+    cursor:pointer;
+    background:none;
+    -webkit-tap-highlight-color:transparent;
+    transition:transform .16s ease, box-shadow .18s ease;
+    box-shadow:0 4px 16px rgba(15,23,42,.10);
+}
+.look-card:active{transform:scale(.965)}
+
+/* 整块铺满主题渐变 —— 这就是「颜色展示框」的本体 */
+.look-fill{
+    position:absolute;
+    inset:0;
+    background:linear-gradient(150deg, var(--lc1,#eee) 0%, var(--lc2,#ccc) 100%);
+}
+/* 上面再压一层柔光，让色块不那么死板 */
+.look-fill::after{
+    content:'';
+    position:absolute;
+    inset:0;
+    background:
+        radial-gradient(120% 90% at 15% 8%, rgba(255,255,255,.55), rgba(255,255,255,0) 60%),
+        radial-gradient(90% 80% at 95% 100%, rgba(0,0,0,.10), rgba(0,0,0,0) 55%);
+}
+
+/* 三个小色片：让人看出这套主题由哪些颜色组成 */
+.look-chips{
+    position:absolute;
+    left:10px;
+    bottom:34px;
+    display:flex;
+    gap:5px;
+}
+.look-chips i{
+    width:15px;
+    height:15px;
+    border-radius:50%;
+    border:1.5px solid rgba(255,255,255,.9);
+    box-shadow:0 1px 4px rgba(15,23,42,.18);
+}
+
+/* 底部小标签（半透明黑条压色块上，任何底色都看得清） */
+.look-nm{
+    position:absolute;
+    left:8px;
+    right:8px;
+    bottom:8px;
+    padding:4px 8px;
+    border-radius:99px;
+    font-size:11.5px;
+    font-weight:700;
+    letter-spacing:.2px;
+    text-align:center;
+    color:#fff;
+    background:rgba(20,20,24,.34);
+    -webkit-backdrop-filter:blur(8px) saturate(150%);
+    backdrop-filter:blur(8px) saturate(150%);
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+
+/* 选中态：白描边 + 右上对勾 */
+.look-card.on{
+    box-shadow:
+        0 0 0 2.5px #fff,
+        0 0 0 5px var(--lac,var(--accent)),
+        0 6px 20px rgba(15,23,42,.18);
+}
+.look-tick{
+    position:absolute;
+    top:8px;
+    right:8px;
+    width:22px;
+    height:22px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border-radius:50%;
+    color:#fff;
+    background:var(--lac,var(--accent));
+    box-shadow:0 2px 8px rgba(15,23,42,.25);
+}
+
+/* 深色模式下色块更亮一点，别糊成一团 */
+html[data-theme="dark"] .look-card{box-shadow:0 4px 16px rgba(0,0,0,.4)}
+html[data-theme="dark"] .look-nm{background:rgba(20,20,24,.52)}
